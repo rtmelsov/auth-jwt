@@ -7,19 +7,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
+	"go-keycloak-jwt/models"
 	"math/big"
 )
-
-// Структура для хранения ключей из JSON
-type KeyData struct {
-	Key              string `json:"key"`
-	Algorithm        string `json:"algorithm"`
-	EncryptionScheme string `json:"encryption_scheme,omitempty"`
-	SignatureScheme  string `json:"signature_scheme,omitempty"`
-	N                string `json:"n"`
-	E                string `json:"e"`
-	Sig              string `json:"sig"`
-}
 
 // Преобразуем модуль и экспоненту в PEM-формат публичного ключа
 func createRSAPublicKeyFromModExp(nStr string, eStr string) (*rsa.PublicKey, error) {
@@ -68,12 +58,15 @@ func convertRSAPublicKeyToPEM(pubKey *rsa.PublicKey) (string, error) {
 	return string(pem.EncodeToMemory(pemKey)), nil
 }
 
-func TokenLoader(tokenString string, keys []KeyData) (*jwt.Token, error) {
+func TokenLoader(tokenString string, keys []models.KeyData) (string, string, error) {
 	// Парсинг массива ключей
 	// JWT токен для валидации
 
+	// Структура для хранения claim'ов (данных) токена
+	claims := jwt.MapClaims{}
+
 	// Парсинг и валидация токена
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		// Убедитесь, что используемый метод подписи — RSA
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -93,27 +86,32 @@ func TokenLoader(tokenString string, keys []KeyData) (*jwt.Token, error) {
 				if err != nil {
 					return nil, fmt.Errorf("ошибка при создании публичного ключа: %v", err)
 				}
-				// Преобразуем в PEM и возвращаем ключ
-				pemKey, err := convertRSAPublicKeyToPEM(pubKey)
-				if err != nil {
-					return nil, err
-				}
-				fmt.Printf("PEM ключ:\n%s\n", pemKey)
 				return pubKey, nil
 			}
 		}
 
-		return nil, fmt.Errorf("ключ с 'kid' %s не найден %v", kid, keys)
+		return nil, fmt.Errorf("ключ с 'kid' %s не найден", kid)
 	})
 
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	// Проверка, является ли токен действительным
+	// Проверка валидности токена
 	if token.Valid {
-		return token, err
+		// Извлекаем данные из токена
+		userID, ok := claims["sub"].(string)
+		if !ok {
+			return "", "", fmt.Errorf("не найден userID в токене")
+		}
+
+		userName, ok := claims["preferred_username"].(string)
+		if !ok {
+			return "", "", fmt.Errorf("не найден userName в токене")
+		}
+
+		return userID, userName, nil
 	} else {
-		return nil, fmt.Errorf("Ошибка при валидности токена")
+		return "", "", fmt.Errorf("токен недействителен")
 	}
 }

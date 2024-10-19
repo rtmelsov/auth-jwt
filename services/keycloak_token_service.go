@@ -1,7 +1,8 @@
-package helpers
+package services
 
 import (
-	"fmt"
+	"encoding/json"
+	"go-keycloak-jwt/models"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -9,7 +10,7 @@ import (
 	"strings"
 )
 
-func GetTokenFromKeycloak(username string, password string) (string, error) {
+func GetTokenFromKeycloak(username string, password string) (models.TokenData, error) {
 	tokenUrl := os.Getenv("TOKEN_URL")
 	clientID := os.Getenv("CLIENT_ID")
 	clientSecret := os.Getenv("CLIENT_SECRET")
@@ -19,11 +20,11 @@ func GetTokenFromKeycloak(username string, password string) (string, error) {
 	data.Set("grant_type", "password")
 	data.Set("username", username)
 	data.Set("password", password)
-	fmt.Println(data)
+
 	resp, err := http.Post(tokenUrl, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	defer func() {
@@ -34,8 +35,13 @@ func GetTokenFromKeycloak(username string, password string) (string, error) {
 	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(body), nil
+	var dat models.TokenData
+	if err := json.Unmarshal(body, &dat); err != nil {
+		return nil, err
+	}
+
+	return dat, nil
 }
