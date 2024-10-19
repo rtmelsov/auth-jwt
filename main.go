@@ -74,18 +74,13 @@ func jwtMiddleware(c *gin.Context) {
 	if tokenString != "" && len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 		tokenString = tokenString[7:] // Убираем "Bearer "
 	} else {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "Invalid token",
-		})
+		c.Redirect(http.StatusTemporaryRedirect, "/login")
 		c.Abort()
 	}
 	jwts, err := loadKeycloakPublicKey()
 	_, err = helpers.TokenLoader(tokenString, jwts)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error":   "Invalid token",
-			"details": err.Error(), // Include the error message here
-		})
+		c.Redirect(http.StatusTemporaryRedirect, "/login")
 		c.Abort()
 	}
 
@@ -94,6 +89,18 @@ func jwtMiddleware(c *gin.Context) {
 
 func protectedHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Access to protected resource granted"})
+}
+
+func loginHandler(c *gin.Context) {
+	token, err := helpers.GetTokenFromKeycloak(c.PostForm("username"), c.PostForm("password"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to login",
+			"details": err.Error(),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 func main() {
@@ -105,6 +112,8 @@ func main() {
 
 	// Настраиваем Gin
 	r := gin.Default()
+
+	r.GET("/login", loginHandler)
 
 	// Защищённый маршрут
 	r.GET("/protected-route", jwtMiddleware, protectedHandler)

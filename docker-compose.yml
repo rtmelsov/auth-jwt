@@ -14,3 +14,13 @@ services:
     ports:
       - "8081:8080"
     command: start-dev
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: myself
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: jwtDb
+    volumes:
+      - pgdata:/var/lib/postgres/data
+    ports:
+      - "5432:5432"
