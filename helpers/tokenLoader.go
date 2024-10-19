@@ -1,4 +1,4 @@
-package main
+package helpers
 
 import (
 	"crypto/rsa"
@@ -68,7 +68,7 @@ func convertRSAPublicKeyToPEM(pubKey *rsa.PublicKey) (string, error) {
 	return string(pem.EncodeToMemory(pemKey)), nil
 }
 
-func tokenLoader(tokenString string, keys []KeyData) (*jwt.Token, error) {
+func TokenLoader(tokenString string, keys []KeyData) (*jwt.Token, error) {
 	// Парсинг массива ключей
 	// JWT токен для валидации
 

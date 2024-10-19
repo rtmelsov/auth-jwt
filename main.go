@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"go-keycloak-jwt/helpers"
 	"log"
 	"net/http"
 	"os"
@@ -24,7 +26,7 @@ type JWK struct {
 
 var keycloakCertURL string
 
-func loadKeycloakPublicKey() ([]KeyData, error) {
+func loadKeycloakPublicKey() ([]helpers.KeyData, error) {
 	// Fetch the public key from Keycloak
 	resp, err := http.Get(keycloakCertURL)
 
@@ -50,9 +52,9 @@ func loadKeycloakPublicKey() ([]KeyData, error) {
 	}
 
 	// Map JWKs to your keyData format
-	var keyData []KeyData
+	var keyData []helpers.KeyData
 	for _, jwk := range jwks.Keys {
-		keyData = append(keyData, KeyData{
+		keyData = append(keyData, helpers.KeyData{
 			Key:       jwk.Kid,
 			Algorithm: jwk.Kty,
 			N:         jwk.N,
@@ -67,33 +69,31 @@ func loadKeycloakPublicKey() ([]KeyData, error) {
 	return keyData, nil
 }
 
-func jwtMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.Header.Get("Authorization")
-		if tokenString != "" && len(tokenString) > 7 && tokenString[:7] == "Bearer " {
-			tokenString = tokenString[7:] // Убираем "Bearer "
-		} else {
-			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
-			return
-		}
-		jwts, err := loadKeycloakPublicKey()
-		_, err = tokenLoader(tokenString, jwts)
-		if err != nil {
-			fmt.Printf("Failed to load Keycloak public key: %s", err)
-			http.Error(w, "Failed to load Keycloak public key: %s", http.StatusInternalServerError)
-			return
-		}
+func jwtMiddleware(c *gin.Context) {
+	tokenString := c.GetHeader("Authorization")
+	if tokenString != "" && len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+		tokenString = tokenString[7:] // Убираем "Bearer "
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid token",
+		})
+		c.Abort()
+	}
+	jwts, err := loadKeycloakPublicKey()
+	_, err = helpers.TokenLoader(tokenString, jwts)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Invalid token",
+			"details": err.Error(), // Include the error message here
+		})
+		c.Abort()
+	}
 
-		next.ServeHTTP(w, r)
-	})
+	c.Next()
 }
 
-func protectedHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := fmt.Fprintln(w, "Access to protected resource granted")
-	if err != nil {
-		fmt.Println("protectedHandler", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+func protectedHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "Access to protected resource granted"})
 }
 
 func main() {
@@ -103,10 +103,17 @@ func main() {
 	}
 	keycloakCertURL = os.Getenv("KEY_CLOAK_CERT_URL")
 
-	http.Handle("/protected-route", jwtMiddleware(http.HandlerFunc(protectedHandler)))
+	// Настраиваем Gin
+	r := gin.Default()
+
+	// Защищённый маршрут
+	r.GET("/protected-route", jwtMiddleware, protectedHandler)
 
 	fmt.Print("Server listening on port 8082")
 
-	log.Fatal(http.ListenAndServe(":8082", nil))
+	// Запуск сервера
+	if err := r.Run(":8082"); err != nil {
+		log.Fatal(err)
+	}
 
 }
