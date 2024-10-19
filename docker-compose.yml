@@ -17,10 +17,14 @@ services:
   postgres:
     image: postgres:14
     environment:
-      POSTGRES_USER: myself
+      POSTGRES_USER: myuser
       POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: jwtDb
+      POSTGRES_DB: myappdb
     volumes:
-      - pgdata:/var/lib/postgres/data
+      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+
+volumes:
+  pgdata:
+    driver: local

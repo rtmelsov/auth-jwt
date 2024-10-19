@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
 	"github.com/joho/godotenv"
 	"go-keycloak-jwt/helpers"
 	"log"
@@ -25,6 +27,25 @@ type JWK struct {
 }
 
 var keycloakCertURL string
+
+var db *pgx.Conn
+
+func connectDB() {
+	databaseURL := os.Getenv("DATABASE_URL")
+	conn, err := pgx.Connect(context.Background(), databaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db = conn
+	fmt.Println("Successfully connected to database")
+}
+
+func closeDB() {
+	err := db.Close(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func loadKeycloakPublicKey() ([]helpers.KeyData, error) {
 	// Fetch the public key from Keycloak
@@ -91,6 +112,47 @@ func protectedHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Access to protected resource granted"})
 }
 
+func getCountries(c *gin.Context) {
+	rows, err := db.Query(context.Background(), "SELECT id, name, code FROM countries")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to fetch countries"})
+		return
+	}
+	defer rows.Close()
+	var countries []map[string]interface{}
+	for rows.Next() {
+		var id int
+		var name, code string
+		if err := rows.Scan(&id, &name, &code); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error scanning countries"})
+			return
+		}
+		country := map[string]interface{}{
+			"id":   id,
+			"name": name,
+			"code": code,
+		}
+		countries = append(countries, country)
+	}
+	c.JSON(http.StatusOK, gin.H{"countries": countries})
+}
+
+func getCountryById(c *gin.Context) {
+	reqId := c.Param("id")
+	var id int
+	var name, code string
+	err := db.QueryRow(context.Background(), "SELECT id, name, code FROM countries WHERE id=$1", reqId).Scan(&id, &name, &code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to fetch countries"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"id":   id,
+		"name": name,
+		"code": code,
+	})
+}
+
 func loginHandler(c *gin.Context) {
 	token, err := helpers.GetTokenFromKeycloak(c.PostForm("username"), c.PostForm("password"))
 	if err != nil {
@@ -110,6 +172,9 @@ func main() {
 	}
 	keycloakCertURL = os.Getenv("KEY_CLOAK_CERT_URL")
 
+	connectDB()
+	defer closeDB()
+
 	// Настраиваем Gin
 	r := gin.Default()
 
@@ -117,6 +182,8 @@ func main() {
 
 	// Защищённый маршрут
 	r.GET("/protected-route", jwtMiddleware, protectedHandler)
+	r.GET("/countries", jwtMiddleware, getCountries)
+	r.GET("/countries/:id", jwtMiddleware, getCountryById)
 
 	fmt.Print("Server listening on port 8082")
 
