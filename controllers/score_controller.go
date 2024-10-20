@@ -55,6 +55,18 @@ const ScoreXml = `
 
 `
 
+// @Summary Get score cards static
+// @Description Получить статические карточки с результатами
+// @Tags scores
+// @Produce json
+// @Accept json
+// @Produce json
+// @Param login body models.ScoreCardsRequest true "ScoreCardsRequest"
+// @Success 200 {object} models.ScoreCardsRequest
+// @Failure 404 {object} map[string]string "ScoreCardsRequest not found"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Security BearerAuth
+// @Router /get-score-cards [post]
 func GetScoreCards(c *gin.Context) {
 	tokenString := c.GetHeader("Authorization")
 	userID, exists := c.Get("userID")
@@ -139,6 +151,18 @@ func GetScoreCards(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"response": string(jsonResponse)})
 }
 
+// @Summary Get score static
+// @Description Получить статические результаты
+// @Tags scores
+// @Produce json
+// @Accept json
+// @Produce json
+// @Param login body models.ScoreRequest true "ScoreRequest"
+// @Success 200 {object} models.ScoreRequest
+// @Failure 404 {object} map[string]string "ScoreRequest not found"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Security BearerAuth
+// @Router /score [post]
 func PostScore(c *gin.Context) {
 	tokenString := c.GetHeader("Authorization")
 	userID, exists := c.Get("userID")

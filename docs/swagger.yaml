@@ -1,0 +1,211 @@
+definitions:
+  models.Country:
+    additionalProperties: true
+    type: object
+  models.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.ScoreCardsRequest:
+    properties:
+      get_score_cards:
+        type: string
+    required:
+    - get_score_cards
+    type: object
+  models.ScoreRequest:
+    properties:
+      Score:
+        properties:
+          ScoreCard:
+            type: string
+          attributes:
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+              values:
+                properties:
+                  id:
+                    type: string
+                  value:
+                    type: string
+                type: object
+            type: object
+        type: object
+    type: object
+  models.TokenData:
+    additionalProperties: true
+    type: object
+info:
+  contact: {}
+  description: JWT сервисы для обработки данных с авторизацией
+  title: FCB
+  version: "1.0"
+paths:
+  /countries:
+    get:
+      description: Возвращает список всех стран (защищенный маршрут)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/models.Country'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get all countries
+      tags:
+      - countries
+  /countries/{id}:
+    get:
+      description: Возвращает информацию о стране по её идентификатору
+      parameters:
+      - description: Country ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Country'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Country not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get country by ID
+      tags:
+      - countries
+  /get-score-cards:
+    post:
+      consumes:
+      - application/json
+      description: Получить статические карточки с результатами
+      parameters:
+      - description: ScoreCardsRequest
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/models.ScoreCardsRequest'
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ScoreCardsRequest'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: ScoreCardsRequest not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get score cards static
+      tags:
+      - scores
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Логин на сайт
+      parameters:
+      - description: Login credentials
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TokenData'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      tags:
+      - main
+  /score:
+    post:
+      consumes:
+      - application/json
+      description: Получить статические результаты
+      parameters:
+      - description: ScoreRequest
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/models.ScoreRequest'
+      produces:
+      - application/json
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ScoreRequest'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: ScoreRequest not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get score static
+      tags:
+      - scores
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
