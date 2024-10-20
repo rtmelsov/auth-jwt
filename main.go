@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
@@ -11,6 +12,7 @@ import (
 	_ "go-keycloak-jwt/docs"
 	"go-keycloak-jwt/middlewares"
 	"log"
+	"time"
 )
 
 // @title FCB
@@ -29,8 +31,29 @@ func main() {
 	db.ConnectDB()
 	defer db.CloseDB()
 
-	// Настраиваем Gin
+	// Custom CORS configuration
+	config := cors.Config{
+		AllowOrigins: []string{"http://localhost:3000"},                   // Allow requests from localhost:3000
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // Allow necessary HTTP methods
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Authorization",
+			"X-Requested-With",
+			"sec-ch-ua",
+			"sec-ch-ua-mobile",
+			"sec-ch-ua-platform",
+			"User-Agent",
+			"Referer"}, // Allow necessary headers, including sec-ch-ua and user-agent
+		ExposeHeaders:    []string{"Content-Length", "Authorization"}, // Expose headers if needed
+		AllowCredentials: true,                                        // Allow cookies or authentication data
+		MaxAge:           12 * time.Hour,                              // Cache preflight for 12 hours
+	}
+
+	// Initialize Gin Router with custom CORS configuration
 	r := gin.Default()
+	r.Use(cors.New(config)) // Apply the custom CORS configuration
+	r.Use(gin.Recovery())
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
